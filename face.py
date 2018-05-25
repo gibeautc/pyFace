@@ -136,14 +136,30 @@ def getID(path):
 		return None
 
 def setID(path,ID):
+	print("UPDATING ID")
+	print(path)
+	print(ID)
 	q="update faceEncoding set id=%s where filename=%s"
 	try:
-		curs.execute(q,[str(ID[0]),path])
+		curs.execute(q,[str(ID),path])
 		db.commit()
 	except:
 		db.rollback()
 		print("Failed to update ID from filename from faceEncoding")
 		print(sys.exc_info())
+
+def getKnownFileList():
+	q="select filename,id from faceEncoding where known=1"
+	try:
+		curs.execute(q,)
+		knownFiles=curs.fetchall()
+		return knownFiles
+	except:
+		print("Failed to fetch known filenames from faceEncoding")
+		print(sys.exc_info())
+		return None
+		
+
 
 def processUnknown(limit):
 	q="select filename from faceEncoding where id=0"
@@ -154,23 +170,24 @@ def processUnknown(limit):
 		print("Failed to fetch known filenames from faceEncoding")
 		print(sys.exc_info())
 		return None
-	q="select filename from faceEncoding where known=1"
-	try:
-		curs.execute(q,)
-		knownFiles=curs.fetchall()
-	except:
-		print("Failed to fetch known filenames from faceEncoding")
-		print(sys.exc_info())
-		return None
+	knownFiles=getKnownFileList()#returns path and ID
 	for f in unKnownFiles:
-		orig=getEncoding(f)
-		for m in knownFiles:
-			comp=getEncoding(m)
-			if faceMatch(orig,comp,limit):
-				newID=getID(m)
-				setID(f,newID)
+		fID,fScore=mostLikelyPerson(f)
+		if fScore<=limit:
+			setID(f,fID)
 				
-
+def mostLikelyPerson(path):
+	enc=getEncoding(path)
+	knownFiles=getKnownFileList()
+	minScore=100
+	minID=0
+	for f,i in knownFiles:
+		comp=getEncoding(f)
+		score=faceCompare(enc,comp)
+		if score<minScore:
+			minScore=score
+			minID=i
+	return minID,minScore
 
 def findSaveFacesFromImages(path,show):
 	files = []
@@ -197,10 +214,34 @@ def findSaveFacesFromImages(path,show):
 				face_image = image[top:bottom, left:right]
 				pil_image = Image.fromarray(face_image)
 				pil_image.show()
-			if not os.path.isdir(path+"tmp"):
-				os.mkdir(path+"tmp")
 			pil_image=pil_image.convert('L')
-			pil_image.save(path+"tmp/"+str(cnt)+"_"+f)
+			pil_image.save("/home/chadg/pyFace/UnKnown/"+str(cnt)+"_"+f)
+		os.rename(path+f,"/home/chadg/pyFace/Processed/"+f)
+
+def resetDB():
+	#delete from faceEncoding
+	#rescan and ID known folder
+	#rescan unknown folder
+	#identify knowns
+	#check?
+	q="delete from faceEncoding"
+	try:
+		curs.execute(q,)
+		db.commit()
+	except:
+		db.rollback()
+		print("Failed to delete all records from faceEncoding")
+		print(sys.exc_info())
+	print("DB scrubed....")
+	loadKnownFolder("/home/chadg/pyFace/Known/")
+	print("Known Folder Reloaded")
+	matchScore=findMinKnownRelation(None)-.001
+	print("Min Score Between Known People(minus .001)")
+	print(matchScore)
+	loadUnKnownFolder("/home/chadg/pyFace/UnKnown/")
+	print("Unknown Folder Reloaded")
+	processUnknown(matchScore)
+	print("Unknowns Processed")
 
 
 		
@@ -237,11 +278,11 @@ def findMinKnownRelation(specID):
 					
 
 if __name__=="__main__":
-	#loadKnownFolder("/home/chadg/pyFace/Known/")
+	resetDB()
 	#matchScore=findMinKnownRelation(None)-.001
+	#print("Min Score Between Known People(minus .001)")
 	#print(matchScore)
-	#loadUnKnownFolder("/home/chadg/pyFace/UnKnown/")
 	#processUnknown(matchScore)
-	findSaveFacesFromImages("/home/chadg/pyFace/Other/",True)
+	#findSaveFacesFromImages("/home/chadg/pyFace/Other/",True)
 	
 	
