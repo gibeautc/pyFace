@@ -4,18 +4,21 @@
 
 
 import facebook
+import pickle
+import time
+import os
 TOKEN="EAAB5Rc1OzGABAIfxpoipBAKbiGTE9mms2tgE7S7YylmxvkNspAdTWt6njBeij7HRVFpcFsintsPNMCkNEtBAwJDBemq4oKQzEfDOuwQfwVtINSdMUVIss6s18jgtk4oADBAW8LZAHiIhHQxNfBdlhZCenA4rJtGg5vCMlfcQZDZD"
-ID="canthavemyname"
+ID="827048157"
 SAFE_CHARS = '-_() abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 def save(res, name='data'):
 	"""Save data to a file"""
-	with open('%s.lst' % name, 'w') as f:
+	with open('%s.lst' % name, 'wb') as f:
 		pickle.dump(res, f)
     
 def read(name='data'):
 	"""Read data from a file"""
-	with open('%s.lst' % name, 'r') as f:
+	with open('%s.lst' % name, 'rb') as f:
 		res = pickle.load(f)
 	return res
 
@@ -33,7 +36,7 @@ def fetch(limit=1000, depth=10, last=None, id=ID, token=TOKEN):
 		res = {'paging': {'next': last}}
     
 	# continue fetching till all photos are found
-	for _ in xrange(depth):
+	for _ in range(depth):
 		if 'paging' not in res:
 			break
 		try:
