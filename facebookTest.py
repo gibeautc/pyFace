@@ -31,6 +31,7 @@ def fetch(limit=1000, depth=10, last=None, id=ID, token=TOKEN):
 	if not last:
 		args = {'fields': ['source','name'], 'limit': limit}
 		res = graph.request('%s/photos/uploaded' % id, args)
+		print(res)
 		process(lst, res['data'])
 	else:
 		res = {'paging': {'next': last}}
