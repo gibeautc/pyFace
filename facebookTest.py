@@ -4,7 +4,7 @@
 
 
 import facebook
-TOKEN="6QKTCM5d6TPA8ZvqiOwadZIJ7eU"
+TOKEN="EAAB5Rc1OzGABAIfxpoipBAKbiGTE9mms2tgE7S7YylmxvkNspAdTWt6njBeij7HRVFpcFsintsPNMCkNEtBAwJDBemq4oKQzEfDOuwQfwVtINSdMUVIss6s18jgtk4oADBAW8LZAHiIhHQxNfBdlhZCenA4rJtGg5vCMlfcQZDZD"
 ID="canthavemyname"
 SAFE_CHARS = '-_() abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
