@@ -172,10 +172,35 @@ def processUnknown(limit):
 				
 
 
-def findSaveFacesFromImages(path):
-	#given a folder path, iterate over each picture
-	#find any/all faces and save them to a temp directory in that folder
-	
+def findSaveFacesFromImages(path,show):
+	files = []
+	for (dirpath, dirnames, filenames) in os.walk(path):
+		files.extend(filenames)
+		break
+	for f in files:	
+		#given a folder path, iterate over each picture
+		#find any/all faces and save them to a temp directory in that folder
+		image = face_recognition.load_image_file(path+f)
+
+		# Find all the faces in the image using a pre-trained convolutional neural network.
+		face_locations = face_recognition.face_locations(image, number_of_times_to_upsample=0, model="cnn")
+
+		print("I found {} face(s) in this photograph.".format(len(face_locations)))
+		cnt=0
+		for face_location in face_locations:
+			cnt=cnt+1
+			# Print the location of each face in this image
+			top, right, bottom, left = face_location
+			print("A face is located at pixel location Top: {}, Left: {}, Bottom: {}, Right: {}".format(top, left, bottom, right))
+			# You can access the actual face itself like this:
+			if show:
+				face_image = image[top:bottom, left:right]
+				pil_image = Image.fromarray(face_image)
+				pil_image.show()
+			if not os.path.isdir(path+"tmp"):
+				os.mkdir(path+"tmp")
+			pil_image=pil_image.convert('L')
+			pil_image.save(path+"tmp/"+str(cnt)+"_"+f)
 
 
 		
@@ -213,9 +238,10 @@ def findMinKnownRelation(specID):
 
 if __name__=="__main__":
 	#loadKnownFolder("/home/chadg/pyFace/Known/")
-	matchScore=findMinKnownRelation(None)-.001
-	print(matchScore)
-	loadUnKnownFolder("/home/chadg/pyFace/UnKnown/")
-	processUnknown(matchScore)
+	#matchScore=findMinKnownRelation(None)-.001
+	#print(matchScore)
+	#loadUnKnownFolder("/home/chadg/pyFace/UnKnown/")
+	#processUnknown(matchScore)
+	findSaveFacesFromImages("/home/chadg/pyFace/Other/",True)
 	
 	
