@@ -423,13 +423,20 @@ def processFame(frame):
 		pil_image=pil_image.convert('L')
 		pil_image.save("/home/chadg/pyFace/UnKnown/"+str(cnt)+"_"+str(int(time.time())))
 
-def resetDB():
+def resetDB(full):
+	#if full, then remove known ecodings are well (full rebuild), if not, leave those in place and re process unknown
+	
+	
+	
 	#delete from faceEncoding
 	#rescan and ID known folder
 	#rescan unknown folder
 	#identify knowns
 	#check?
-	q="delete from faceEncoding"
+	if full:
+		q="delete from faceEncoding"
+	else:
+		q="delete from faceEncoding where known=0"
 	try:
 		curs.execute(q,)
 		db.commit()
@@ -485,13 +492,9 @@ def findMinKnownRelation(specID):
 	
 
 if __name__=="__main__":
-	findSaveFacesFromImages("/home/chadg/pyFace/Other/",True,1,True)
-	#resetDB()
-	#matchScore=findMinKnownRelation(None)-.001
-	#print("Min Score Between Known People(minus .001)")
-	#print(matchScore)
-	#processUnknown(matchScore)
+	resetDB(False)
 	while True:
+		findSaveFacesFromImages("/home/chadg/pyFace/Other/",True,1,True)
 		checkDBvsUnknown("/home/chadg/pyFace/UnKnown/")
 		checkDBvsKnown("/home/chadg/pyFace/Known/")
 		d=deepfind()
