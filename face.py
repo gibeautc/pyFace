@@ -6,6 +6,32 @@
 #docs for this are at https://github.com/ageitgey/face_recognition
 
 
+###Database Layout
+
+#faceEncoding Table
+# id int 
+# known bool
+# filename varchar(100)    key
+# data blob
+# jitter int
+
+
+
+#people table
+
+# id int   key
+# name varchar(50)
+# known bool
+
+
+#Each person will only have one entry in people table, but can have many entries in the Encoding table (one for each picture)
+#the known flag in the people table will tell us if this person actually has a "known" picture and name
+#if not, then we have classified this as a new person, but do not know them. But we can link other pictures to this person for future identification
+#we will give them a id, but name will be left as JDxxx where xxx will be their id number
+
+
+
+
 import struct
 import face_recognition
 import time
@@ -64,10 +90,39 @@ def findUniqueID(lst):
 		if unique is True:
 			#print("Found Unique ID: "+str(num))
 			return num
-		
 
-#encodes a picture (hopefully a face picture) and stores it in the database
-def encodeFile(filename,known,jit):
+
+def checkForNewPerson():
+	#return 0 if no un-id'ed people are available, or a 1 if there was
+	#get 1 from encoding table where id=0
+	q="select filename from faceEncoding where id=0 limit 1"
+	try:
+		curs.execute(q,)
+		data=curs.fetchone()[0]
+		print(data)
+	except:
+		print("Failed to fetch non id'ed person from faceEncoding")
+		print(sys.exc_info())
+		return 0
+	if data is None:
+		print("no data")
+		return 0
+	n=findUniqueID(None)
+	setID(data,n)
+	#assign them an ID
+	# call 
+	
+	matchScore=findMinKnownRelation(None)-.001
+	print("Min Score Between Known People(minus .001):"),
+	print(matchScore)
+	processUnknown(matchScore)
+	print("Unknowns Processed")
+	sortPictures()
+	print("Images Sorted")
+	return 1
+
+#encodes a picture and stores it in the database if it can find a face
+def encodeFile(filename,known,jit,faceLocation=None):
 	###
 	#face_recognition.api.face_encodings(face_image,known_face_locations=None,num_jitters=1)
 	#Given an image, return the 128-dimension face encoding for each face in the image.
@@ -78,30 +133,28 @@ def encodeFile(filename,known,jit):
 	#Returns
 	#A list of 128-dimensional face encodings (one for each face in the image)
 	###
-	
-	
+
+
+	#Does this work better? or faster if I provide facelocations since I should already have them?
+
+
 	n=0
 	if known:
 		n=findUniqueID(None)
 
 	try:
 		subject = face_recognition.load_image_file(filename)
-		subjectEncoding = face_recognition.face_encodings(subject,num_jitters=jit)[0]
+		subjectEncoding = face_recognition.face_encodings(subject,num_jitters=jit,known_face_locations=faceLocation)[0]
 	except:
 		print("Failed To find faces in file")
 		print(sys.exc_info())
 		return None
-	#print(subjectEncoding)
 	outBA=[]
 	for el in subjectEncoding:
 		ba = bytearray(struct.pack("d", el))
 		for b in ba:
 			outBA.append(b)
-	#print("Length of Data: "+str(len(outBA)))
-	#print(outBA)
 	q='insert into faceEncoding(filename,data,known,id,jitter) values("'+filename+'",%s,'+str(known)+','+str(n)+','+str(jit)+') on duplicate key update data=%s, jitter=%s'
-	#print("Q:"),
-	#print(q)
 	try:
 		dat=''.join(map(lambda x: chr(x % 256), outBA))
 		curs.execute(q,[dat,dat,str(jit)])
@@ -111,6 +164,20 @@ def encodeFile(filename,known,jit):
 		print("Error Adding faceEncoding entry")
 		print(sys.exc_info())
 	return subjectEncoding	
+		
+def getLandMarks(path,large=True,faceLocations=None):
+	if large:
+		 return face_recognition.api.face_landmarks(path,face_locations=faceLocations)
+	else:
+		return face_recognition.api.face_landmarks(path,face_locations=faceLocations,model='small')
+	#face_recognition.api.face_landmarks(face_image,face_locations=None,model=’large’)
+	#Given an image, returns a dict of face feature locations (eyes, nose, etc) for each face in the image
+	#Parameters
+	#•face_image – image to search
+	#•face_locations – Optionally provide a list of face locations to check.
+	#•model – Optional - which model to use.  “large” (default) or “small” which only returns 5 points but is faster.
+	#Returns A list of dicts of face feature locations (eyes, nose, etc)			
+		
 		
 def getEncoding(filename):
 	q="select data from faceEncoding where filename=%s" 
@@ -199,6 +266,8 @@ def getKnownFileList():
 		print("Failed to fetch known filenames from faceEncoding")
 		print(sys.exc_info())
 		return None
+def getPersonList():
+	
 
 def getUnknownFileList():
 	q="select filename from faceEncoding where known=0"
@@ -210,8 +279,6 @@ def getUnknownFileList():
 		print("Failed to fetch unknown filenames from faceEncoding")
 		print(sys.exc_info())
 		return None
-
-
 		
 def deepfind():
 	minJ=getMinJit()
@@ -231,6 +298,7 @@ def deepfind():
 		return None
 	for f,k in files:
 		encodeFile(f,k,minJ+1)
+		print("Updated: "+f)
 	matchScore=findMinKnownRelation(None)-.001
 	print("Min Score Between Known People(minus .001)")
 	print(matchScore)
@@ -276,10 +344,12 @@ def sortPictures():
 	for i,f in files:
 		name=f.split("/")[-1]
 		name="sorted/"+str(i)+"/"+name
+		print("Trying to copy:"),
+		print(f)
+		print("To:"),
+		print(name)
 		shutil.copyfile(f, name)
-		
-	
-				
+						
 def mostLikelyPerson(path):
 	enc=getEncoding(path)
 	knownFiles=getKnownFileList()
@@ -292,8 +362,6 @@ def mostLikelyPerson(path):
 			minScore=score
 			minID=i
 	return minID,minScore
-
-
 
 def findFace(i,upSample):
 	faces=[]
@@ -329,7 +397,6 @@ def findSaveFacesFromImages(path,show,upSample,printTime):
 			pil_image = Image.fromarray(face)
 			pil_image=pil_image.convert('L')
 			pil_image.save("/home/chadg/pyFace/UnKnown/"+str(cnt)+"_"+f)
-
 			if show:
 				pil_image.show()
 		os.rename(path+f,"/home/chadg/pyFace/Processed/"+f)
@@ -350,9 +417,6 @@ def checkDBvsUnknown(path):
 	unFiles=[]
 	for f in files:
 		unFiles.append(path+f)
-	
-	print(unFiles)
-
 	for f in unFiles:
 		if f not in ffiles: 
 				notAdded.append(f)
@@ -386,26 +450,20 @@ def checkDBvsKnown(path):
 	unFiles=[]
 	for f in files:
 		unFiles.append(path+f)
-	
-	print(unFiles)
-	print("")
-	print(ffiles)
 	for f in unFiles:
 		if f not in ffiles: 
-				notAdded.append(f)
-	
-				
+				notAdded.append(f)		
 	if len(notAdded)>0:
 		print("Files in Known that are not in the database:"+str(len(notAdded)))
 		print(notAdded)
-		#for f in notAdded:	
-		#	e=encodeFile(f,True,1)
-		#	if e is None:
-		#		name=f.split("/")[-1]
-		#		name="sorted/NOFACE/"+name
-		#		shutil.copyfile(f, name)
-		#	else:
-		#		print("Loaded(Known): "+f)
+		for f in notAdded:	
+			e=encodeFile(f,True,1)
+			if e is None:
+				name=f.split("/")[-1]
+				name="sorted/NOFACE/"+name
+				shutil.copyfile(f, name)
+			else:
+				print("Loaded(Known): "+f)
 
 
 
@@ -424,39 +482,34 @@ def processFame(frame):
 		pil_image.save("/home/chadg/pyFace/UnKnown/"+str(cnt)+"_"+str(int(time.time())))
 
 def resetDB(full):
-	#if full, then remove known ecodings are well (full rebuild), if not, leave those in place and re process unknown
+	#if full, then remove all data from DB. 
+	#if not, remove all id's from unknow pictures, and re match to known
 	
-	
-	
-	#delete from faceEncoding
-	#rescan and ID known folder
-	#rescan unknown folder
-	#identify knowns
-	#check?
 	if full:
 		q="delete from faceEncoding"
 	else:
-		q="delete from faceEncoding where known=0"
+		q="update faceEncoding set id=0 where known=0"
 	try:
 		curs.execute(q,)
 		db.commit()
 	except:
 		db.rollback()
-		print("Failed to delete all records from faceEncoding")
+		print("Failed to Update DB on reset")
 		print(sys.exc_info())
 	print("DB scrubed....")
-	loadKnownFolder("/home/chadg/pyFace/Known/")
-	print("Known Folder Reloaded")
+	if full:
+		loadKnownFolder("/home/chadg/pyFace/Known/")
+		print("Known Folder Reloaded")
 	matchScore=findMinKnownRelation(None)-.001
 	print("Min Score Between Known People(minus .001)")
 	print(matchScore)
-	loadUnKnownFolder("/home/chadg/pyFace/UnKnown/")
-	print("Unknown Folder Reloaded")
+	if full:
+		loadUnKnownFolder("/home/chadg/pyFace/UnKnown/")
+		print("Unknown Folder Reloaded")
 	processUnknown(matchScore)
 	print("Unknowns Processed")
 	sortPictures()
 	print("Images Sorted")
-
 
 		
 def findMinKnownRelation(specID):
@@ -492,8 +545,11 @@ def findMinKnownRelation(specID):
 	
 
 if __name__=="__main__":
-	resetDB(False)
+	#l=getLandMarks("/home/chadg/pyFace/Known/chad.jpg")
+	#print(l)
+	#resetDB(False)
 	while True:
+		checkForNewPerson()
 		findSaveFacesFromImages("/home/chadg/pyFace/Other/",True,1,True)
 		checkDBvsUnknown("/home/chadg/pyFace/UnKnown/")
 		checkDBvsKnown("/home/chadg/pyFace/Known/")
@@ -503,4 +559,3 @@ if __name__=="__main__":
 				break
 		except:
 			pass
-	
