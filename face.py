@@ -43,6 +43,11 @@ import random
 from PIL import Image
 import shutil
 import signal
+import numpy as np
+import cv2
+
+
+
  
 def sigint_handler(signum, frame):
     print('Exiting')
@@ -144,6 +149,8 @@ def encodeFile(filename,known,jit,faceLocation=None):
 
 	try:
 		subject = face_recognition.load_image_file(filename)
+		print(type(subject))
+		x=input("ENTER")
 		subjectEncoding = face_recognition.face_encodings(subject,num_jitters=jit,known_face_locations=faceLocation)[0]
 	except:
 		print("Failed To find faces in file")
@@ -266,8 +273,9 @@ def getKnownFileList():
 		print("Failed to fetch known filenames from faceEncoding")
 		print(sys.exc_info())
 		return None
+
 def getPersonList():
-	
+		pass
 
 def getUnknownFileList():
 	q="select filename from faceEncoding where known=0"
@@ -358,6 +366,19 @@ def mostLikelyPerson(path):
 	for f,i in knownFiles:
 		comp=getEncoding(f)
 		score=faceCompare(enc,comp)
+		if score<minScore:
+			minScore=score
+			minID=i
+	return minID,minScore
+	
+def mostLikelyPersonFromFrame(frame):
+	subjectEncoding = face_recognition.face_encodings(frame)[0]
+	knownFiles=getKnownFileList()
+	minScore=100
+	minID=0
+	for f,i in knownFiles:
+		comp=getEncoding(f)
+		score=faceCompare(subjectEncoding,comp)
 		if score<minScore:
 			minScore=score
 			minID=i
@@ -468,18 +489,22 @@ def checkDBvsKnown(path):
 
 
 
-def processFame(frame):
+def processFame(frame,show,save):
 	#given a frame from video, check it for faces, if there is any, save them
 	faces=findFace(frame,0)
 	print("I found {} face(s) in this frame.".format(len(faces)))
 	cnt=0
 	for face in faces:
+		
 		cnt=cnt+1
 		pil_image = Image.fromarray(face)
+		pid,score=mostLikelyPersonFromFrame(pil_image)
+		print("Most Likely person ID:{}".format(pid))
 		if show:
 			pil_image.show()
-		pil_image=pil_image.convert('L')
-		pil_image.save("/home/chadg/pyFace/UnKnown/"+str(cnt)+"_"+str(int(time.time())))
+		#pil_image=pil_image.convert('L')
+		if save:
+			pil_image.save("/home/chadg/pyFace/UnKnown/"+str(cnt)+"_"+str(int(time.time()))+".jpg")
 
 def resetDB(full):
 	#if full, then remove all data from DB. 
@@ -543,11 +568,9 @@ def findMinKnownRelation(specID):
 						minScores[f]=minScore
 	return globalMin
 	
-
-if __name__=="__main__":
-	#l=getLandMarks("/home/chadg/pyFace/Known/chad.jpg")
-	#print(l)
-	#resetDB(False)
+	
+def dbThread():
+	resetDB(True)
 	while True:
 		checkForNewPerson()
 		findSaveFacesFromImages("/home/chadg/pyFace/Other/",True,1,True)
@@ -556,6 +579,33 @@ if __name__=="__main__":
 		d=deepfind()
 		try:
 			if d<0:
-				break
+				time.sleep(30)
 		except:
 			pass
+			
+
+def captureThread():	
+	cap = cv2.VideoCapture(0)
+	while(True):
+		t=time.time()
+		# Capture frame-by-frame
+		ret, frame = cap.read()
+
+		# Our operations on the frame come here
+		gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+		processFame(gray,False,False)
+		# Display the resulting frame
+		cv2.imshow('frame',gray)
+		if cv2.waitKey(1) & 0xFF == ord('q'):
+			break
+		fps=int(1/(time.time()-t))
+		print("FPS: {}".format(fps))
+	# When everything done, release the capture
+	cap.release()
+	cv2.destroyAllWindows()
+
+if __name__=="__main__":
+		dbThread()
+	
+	
+	
