@@ -57,10 +57,8 @@ def getPeopleList():
 		print(sys.exc_info())
 		return None
 		
-						
 def mostLikelyPerson(enc):
 	peopleList=getPeopleList()
-	
 	minScore=100
 	minID=0
 	if len(peopleList)==0:
@@ -314,7 +312,6 @@ if __name__=="__main__":
 					cT.name="captureThread"
 					cT.daemon=True
 					cT.start()
-				
 			if not dT.isAlive():
 				print("Restarting dbThread")
 				dT=Thread(target=dbThread,args=(personQueue,))	
