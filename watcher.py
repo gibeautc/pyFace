@@ -183,8 +183,8 @@ def unpackEnc(d):
 	for x in range(128):
 		tmp=[]
 		for y in range(8):
-			tmp.append(d[(x*8)+y])
-			encodedValue.append(struct.unpack('d',bytearray(tmp))[0])
+			tmp.append(d[0][(x*8)+y])
+		encodedValue.append(struct.unpack('d',bytearray(tmp))[0])
 	return np.array(encodedValue)
 
 
@@ -219,10 +219,13 @@ def dbThread(queue):
 				t=unpackEnc(dataSet[m])
 				total=total+faceCompare(s,t)
 				cnt=cnt+1
+			if cnt==0:
+				continue
 			total=total/cnt
 			if total<minAveScore:
 				minAveScore=total
-				minData=DataSet[n]
+				minData=dataSet[n]
+		print("minAveScore:"+str(minAveScore))
 		if minData is None:
 			print("Didnt find a min??")
 			continue
@@ -287,32 +290,34 @@ def captureThread(q):
 	cap.release()
 	cv2.destroyAllWindows()
 
-personQueue=Queue()
-
 
 if __name__=="__main__":
+		personQueue=Queue()
+		haveCamera=False
 		cT=Thread(target=captureThread,args=(personQueue,))
 		dT=Thread(target=dbThread,args=(personQueue,))
 		cT.name="captureThread"
 		dT.name="dbThread"
 		cT.daemon=True
 		dT.daemon=True
-		cT.start()
+		if haveCamera:
+			cT.start()
 		dT.start()
 		reQueueAll(personQueue)
 		while True:
 			print("Main Running")
 			time.sleep(5)
 			if not cT.isAlive():
-				print("Restarting captureThread")
-				cT=Thread(target=captureThread,args=(captureQueue,))
-				cT.name="captureThread"
-				cT.daemon=True
-				cT.start()
+				if haveCamera:
+					print("Restarting captureThread")
+					cT=Thread(target=captureThread,args=(personQueue,))
+					cT.name="captureThread"
+					cT.daemon=True
+					cT.start()
 				
 			if not dT.isAlive():
 				print("Restarting dbThread")
-				dT=Thread(target=dbThread,args=(dbQueue,))	
+				dT=Thread(target=dbThread,args=(personQueue,))	
 				dT.name="dbThread"	
 				dT.daemon=True
 				dT.start()
