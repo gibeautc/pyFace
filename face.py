@@ -151,6 +151,9 @@ def encodeFile(filename,known,jit,faceLocation=None):
 		subject = face_recognition.load_image_file(filename)
 		print(type(subject))
 		print(len(subject))
+		print(type(subject[0]))
+		print(len(subject[0]))
+		print(type(subject[0][0]))
 		x=input("ENTER")
 		subjectEncoding = face_recognition.face_encodings(subject,num_jitters=jit,known_face_locations=faceLocation)[0]
 	except:
