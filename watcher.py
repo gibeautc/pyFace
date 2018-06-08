@@ -7,8 +7,15 @@
 
 
 ###Database Layout
+#people table
+#pid	int auto
+#name  varchar(50)
+#data  blob 
 
-
+#faces
+#id int aut
+#pid int 
+#data blob
 
 
 
@@ -18,33 +25,18 @@ import face_recognition
 import time
 import sys
 import MySQLdb
-import os
-import numpy as np
-import random
 from PIL import Image
-import shutil
-import signal
 import numpy as np
 import cv2
-
-
-
- 
-def sigint_handler(signum, frame):
-    print('Exiting')
-    exit()
- 
-signal.signal(signal.SIGINT, sigint_handler)
-
-
 
 db=MySQLdb.connect('localhost','root','aq12ws','face2')
 curs=db.cursor()
 
-		
-
 def encodeFrame(frame):
 	print(type(frame))
+	l=len(frame)
+	print(l)
+	
 	try:
 		subjectEncoding = face_recognition.face_encodings(frame)[0]
 		return subjectEncoding
@@ -52,39 +44,7 @@ def encodeFrame(frame):
 		print("Failed To find faces in frame")
 		print(sys.exc_info())
 		return None
-	
-					
-#not using this i think		
-def getEncoding(pid):
-	q="select data from people where pid=%s" 
-	try:
-		curs.execute(q,[str(pid),])
-		data=curs.fetchone()[0]
-	except:
-		print("Failed to fetch encoding from people")
-		print(sys.exc_info())
-		return None
-	try:
-		encodedValue=[]
-		for x in range(128):
-			tmp=[]
-			for y in range(8):
-				tmp.append(data[(x*8)+y])
-			encodedValue.append(struct.unpack('d',bytearray(tmp))[0])
-		return np.array(encodedValue)
-	except:
-		print("Failed to Data in float list")
-		print(sys.exc_info())
-		return None
-		
-		
-#not using this i think	
-def faceMatch(known,unknown,cutoff):
-	result=face_recognition.face_distance([known], unknown)
-	if result<cutoff:
-		return True
-	return False
-	
+				
 def faceCompare(known,unknown):
 	return face_recognition.face_distance([known], unknown)[0]
 	
@@ -173,16 +133,11 @@ def addPerson(enc):
 		return None
 	
 
-def processFame(frame,show,save):
-	#given a frame from video, check it for faces, if there is any, save them
+def processFame(frame,show):
+	#given a frame from video, check it for faces, if there is any, save to db
 	faces=findFace(frame,0)
 	print("I found {} face(s) in this frame.".format(len(faces)))
-	cnt=0
 	for face in faces:
-		
-		cnt=cnt+1
-		pil_image = Image.fromarray(face)
-		pil_image=pil_image.convert('L')
 		enc=encodeFrame(frame)
 		if enc is None:
 			return
@@ -197,6 +152,7 @@ def processFame(frame,show,save):
 			pid=addPerson(enc)
 			if pid is not None:
 				addFaceDB(pid,enc)
+				pil_image = Image.fromarray(face)
 				pil_image.save("/home/chadg/pyFace/newPeople/"+str(pid)+".jpg")			
 			
 
@@ -210,7 +166,7 @@ def captureThread():
 
 		# Our operations on the frame come here
 		gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-		processFame(gray,False,False)
+		processFame(gray,False)
 		# Display the resulting frame
 		cv2.imshow('frame',gray)
 		if cv2.waitKey(1) & 0xFF == ord('q'):
